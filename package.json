@@ -1,0 +1,12 @@
+{
+  "name": "eva-interpreter",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "node Eva.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

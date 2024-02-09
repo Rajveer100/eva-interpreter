@@ -30,43 +30,66 @@ class Eva {
         // Math Operations:
 
         if (expr[0] === '+') {
-            return this.eval(expr[1]) + this.eval(expr[2]);
+            return this.eval(expr[1], env) + this.eval(expr[2], env);
         }
 
         if (expr[0] === '-') {
-            return this.eval(expr[1]) - this.eval(expr[2]);
+            return this.eval(expr[1], env) - this.eval(expr[2], env);
         }
 
         if (expr[0] === '*') {
-            return this.eval(expr[1]) * this.eval(expr[2]);
+            return this.eval(expr[1], env) * this.eval(expr[2], env);
         }
 
         if (expr[0] === '/') {
             if (expr[2] === 0) {
                 throw 'Cannot divide by zero!';
             }
-            return this.eval(expr[1]) / this.eval(expr[2]);
+            return this.eval(expr[1], env) / this.eval(expr[2], env);
         }
 
         if (expr[0] === '%') {
             if (expr[2] === 0) {
                 throw 'Cannot modulo by zero!';
             }
-            return this.eval(expr[1]) % this.eval(expr[2]);
+            return this.eval(expr[1], env) % this.eval(expr[2], env);
         }
 
-        // Variable Declaration.
+        // Block: Sequence of expressions.
+        if (expr[0] === 'begin') {
+            const blockEnv = new Environment({}, env);
+            return this._evalBlock(expr, blockEnv);
+        }
+
+        // Variable Declaration: (var foo 10)
         if (expr[0] === 'var') {
             const [_, name, value] = expr;
-            return env.define(name, this.eval(value));
+            return env.define(name, this.eval(value, env));
         }
 
-        // Variable Access.
+        // Variable Declaration: (set foo 10)
+        if (expr[0] === 'set') {
+            const [_, name, value] = expr;
+            return env.assign(name, this.eval(value, env));
+        }
+
+        // Variable Access: foo
         if (isVariableName(expr)) {
             return env.lookup(expr);
         }
 
         throw `Unimplemented: ${JSON.stringify(expr)}`;
+    }
+
+    _evalBlock(block, env) {
+        let result;
+
+        const [_tag, ...expressions] = block;
+        expressions.forEach(expr => {
+            result = this.eval(expr, env);
+        });
+
+        return result;
     }
 }
 
@@ -124,3 +147,35 @@ assert.strictEqual(eva.eval(['var', 'z', ['+', 2, 3]]), 5);
 assert.strictEqual(eva.eval('z'), 5);
 
 console.log("All assertions passed!");
+
+// Blocks
+
+assert.strictEqual(eva.eval(
+    ['begin',
+            ['var', 'x', 10],
+            ['var', 'y', 20],
+            ['+', ['*', 'x', 'y'], 30],
+    ]),
+    230);
+
+assert.strictEqual(eva.eval(
+    ['begin',
+        ['var', 'x', 10],
+        ['begin',
+            ['var', 'x', 20],
+            'x'
+        ],
+        'x'
+    ]),
+    10);
+
+assert.strictEqual(eva.eval(
+        ['begin',
+            ['var', 'x', 10],
+            ['begin',
+                ['set', 'x', 50],
+            ],
+            'x'
+        ]),
+    50);
+

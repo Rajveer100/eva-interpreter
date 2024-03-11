@@ -55,6 +55,27 @@ class Eva {
             return this.eval(expr[1], env) % this.eval(expr[2], env);
         }
 
+        // Comparison Operators:
+        if (expr[0] === '>') {
+            return this.eval(expr[1], env) > this.eval(expr[2], env);
+        }
+
+        if (expr[0] === '>=') {
+            return this.eval(expr[1], env) >= this.eval(expr[2], env);
+        }
+
+        if (expr[0] === '<') {
+            return this.eval(expr[1], env) < this.eval(expr[2], env);
+        }
+
+        if (expr[0] === '<=') {
+            return this.eval(expr[1], env) <= this.eval(expr[2], env);
+        }
+
+        if (expr[0] === '=') {
+            return this.eval(expr[1], env) === this.eval(expr[2], env);
+        }
+
         // Block: Sequence of expressions.
         if (expr[0] === 'begin') {
             const blockEnv = new Environment({}, env);
@@ -76,6 +97,24 @@ class Eva {
         // Variable Access: foo
         if (isVariableName(expr)) {
             return env.lookup(expr);
+        }
+
+        // if-expression:
+        if (expr[0] === 'if') {
+            const [_tag, condition, consequent, alternate] = expr;
+            if (this.eval(condition, env)) {
+                return this.eval(consequent, env);
+            }
+            return this.eval(alternate, env);
+        }
+
+        if (expr[0] === 'while') {
+            const [_tag, condition, body] = expr;
+            let result;
+            while (this.eval(condition, env)) {
+                result = this.eval(body, env);
+            }
+            return result;
         }
 
         throw `Unimplemented: ${JSON.stringify(expr)}`;

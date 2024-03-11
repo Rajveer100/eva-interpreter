@@ -6,6 +6,7 @@ const tests = [
     require('./math'),
     require('./var'),
     require('./blocks'),
+    require('./if_cond'),
 ];
 
 const eva = new Eva(new Environment({

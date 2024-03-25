@@ -9,7 +9,7 @@ class Eva {
     /**
      * Creates an Eva instance with the global environment.
      */
-    constructor(global = new Environment()) {
+    constructor(global = GlobalEnvironment) {
         this.global = global;
     }
 
@@ -19,61 +19,12 @@ class Eva {
     eval(expr, env = this.global) {
         // Self-evaluating expressions.
 
-        if (isNumber(expr)) {
+        if (this._isNumber(expr)) {
             return expr;
         }
 
-        if (isString(expr)) {
+        if (this._isString(expr)) {
             return expr.slice(1, -1);
-        }
-
-        // Math Operations:
-
-        if (expr[0] === '+') {
-            return this.eval(expr[1], env) + this.eval(expr[2], env);
-        }
-
-        if (expr[0] === '-') {
-            return this.eval(expr[1], env) - this.eval(expr[2], env);
-        }
-
-        if (expr[0] === '*') {
-            return this.eval(expr[1], env) * this.eval(expr[2], env);
-        }
-
-        if (expr[0] === '/') {
-            if (expr[2] === 0) {
-                throw 'Cannot divide by zero!';
-            }
-            return this.eval(expr[1], env) / this.eval(expr[2], env);
-        }
-
-        if (expr[0] === '%') {
-            if (expr[2] === 0) {
-                throw 'Cannot modulo by zero!';
-            }
-            return this.eval(expr[1], env) % this.eval(expr[2], env);
-        }
-
-        // Comparison Operators:
-        if (expr[0] === '>') {
-            return this.eval(expr[1], env) > this.eval(expr[2], env);
-        }
-
-        if (expr[0] === '>=') {
-            return this.eval(expr[1], env) >= this.eval(expr[2], env);
-        }
-
-        if (expr[0] === '<') {
-            return this.eval(expr[1], env) < this.eval(expr[2], env);
-        }
-
-        if (expr[0] === '<=') {
-            return this.eval(expr[1], env) <= this.eval(expr[2], env);
-        }
-
-        if (expr[0] === '=') {
-            return this.eval(expr[1], env) === this.eval(expr[2], env);
         }
 
         // Block: Sequence of expressions.
@@ -95,7 +46,7 @@ class Eva {
         }
 
         // Variable Access: foo
-        if (isVariableName(expr)) {
+        if (this._isVariableName(expr)) {
             return env.lookup(expr);
         }
 
@@ -117,6 +68,24 @@ class Eva {
             return result;
         }
 
+        // Function calls:
+        //
+        // (print "Hello World")
+        // (+ x 5)
+        // (> foo bar)
+        if (Array.isArray(expr)) {
+            const fn = this.eval(expr[0], env);
+            const args = expr .slice(1).map(arg => this.eval(arg, env));
+
+            // Native function
+
+            if (typeof fn === 'function') {
+                return fn(...args);
+            }
+
+            // User-defined function
+        }
+
         throw `Unimplemented: ${JSON.stringify(expr)}`;
     }
 
@@ -130,18 +99,89 @@ class Eva {
 
         return result;
     }
+
+    _isNumber(expr) {
+        return typeof expr === 'number';
+    }
+
+    _isString(expr) {
+        return typeof expr === 'string' && expr[0] === '"' && expr.slice(-1) === '"';
+    }
+
+    _isVariableName(expr) {
+        return typeof expr === 'string' && /^[+\-*/%<>=a-zA-Z0-9_]+$/.test(expr);
+    }
 }
 
-function isNumber(expr) {
-    return typeof expr === 'number';
-}
+/**
+ * Default Global Environment.
+ */
+const GlobalEnvironment = new Environment({
+    null: null,
 
-function isString(expr) {
-    return typeof expr === 'string' && expr[0] === '"' && expr.slice(-1) === '"';
-}
+    true: true,
+    false: false,
 
-function isVariableName(expr) {
-    return typeof expr === 'string' && /^[a-zA-Z][a-zA-Z0-9_]*$/.test(expr);
-}
+    VERSION: '0.1',
+
+    // Operators
+
+    '+'(op1, op2) {
+        return op1 + op2;
+    },
+
+    '-'(op1, op2) {
+        return op1 - op2;
+    },
+
+    '*'(op1, op2 = null) {
+        if (op2 == null) {
+            return -op1;
+        }
+        return op1 * op2;
+    },
+
+    '/'(op1, op2) {
+        if (op2 === 0) {
+            throw 'Cannot modulo by zero!';
+        }
+        return op1 / op2;
+    },
+
+    '%'(op1, op2) {
+        if (op2 === 0) {
+            throw 'Cannot modulo by zero!';
+        }
+        return op1 % op2;
+    },
+
+    // Comparison
+
+    '>'(op1, op2) {
+        return op1 > op2;
+    },
+
+    '<'(op1, op2) {
+        return op1 < op2;
+    },
+
+    '>='(op1, op2) {
+        return op1 >= op2;
+    },
+
+    '<='(op1, op2) {
+        return op1 <= op2;
+    },
+
+    '='(op1, op2) {
+        return op1 === op2;
+    },
+
+    // Console Output
+
+    print(...args) {
+        console.log(...args);
+    },
+});
 
 module.exports = Eva;

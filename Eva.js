@@ -68,6 +68,18 @@ class Eva {
             return result;
         }
 
+        // Function declaration: (def square (x) (* x x))
+        if (expr[0] === 'def') {
+            const [_tag, name, params, body] = expr;
+            const fn = {
+                params,
+                body,
+                env, // Closure.
+            };
+
+            return env.define(name, fn);
+        }
+
         // Function calls:
         //
         // (print "Hello World")
@@ -75,7 +87,7 @@ class Eva {
         // (> foo bar)
         if (Array.isArray(expr)) {
             const fn = this.eval(expr[0], env);
-            const args = expr .slice(1).map(arg => this.eval(arg, env));
+            const args = expr.slice(1).map(arg => this.eval(arg, env));
 
             // Native function
 
@@ -84,9 +96,28 @@ class Eva {
             }
 
             // User-defined function
+
+            const activationRecord = {};
+            fn.params.forEach((param, index) => {
+                activationRecord[param] = args[index]
+            });
+
+            const activationEnv = new Environment(
+                activationRecord,
+                fn.env,
+            );
+
+            return this._evalBody(fn.body, activationEnv);
         }
 
         throw `Unimplemented: ${JSON.stringify(expr)}`;
+    }
+
+    _evalBody(body, env) {
+        if (body[0] === 'begin') {
+            return this._evalBlock(body, env);
+        }
+        return this.eval(body, env);
     }
 
     _evalBlock(block, env) {

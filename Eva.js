@@ -1,6 +1,7 @@
 const assert = require('assert');
 
 const Environment = require('./Environment');
+const Transformer = require('./transform/Transformer')
 
 /**
  * Eva Interpreter.
@@ -11,6 +12,7 @@ class Eva {
      */
     constructor(global = GlobalEnvironment) {
         this.global = global;
+        this._transformer = new Transformer();
     }
 
     /**
@@ -69,15 +71,24 @@ class Eva {
         }
 
         // Function declaration: (def square (x) (* x x))
+        //
+        // Syntactic sugar for: (var square (lambda (x) (* x x)))
         if (expr[0] === 'def') {
-            const [_tag, name, params, body] = expr;
-            const fn = {
+            // JIT-transpile to a variable declaration.
+            const varExpr = this._transformer.transformDefToLambda(expr);
+
+            return this.eval(varExpr, env);
+        }
+
+        // Lambda declaration: (lambda square (x) (* x x))
+        if (expr[0] === 'lambda') {
+            const [_tag, params, body] = expr;
+
+            return {
                 params,
                 body,
                 env, // Closure.
             };
-
-            return env.define(name, fn);
         }
 
         // Function calls:

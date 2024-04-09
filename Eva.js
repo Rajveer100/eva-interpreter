@@ -80,6 +80,60 @@ class Eva {
             return this.eval(varExpr, env);
         }
 
+        // Switch-expression: (switch (cond1, block1) ...)
+        //
+        // Syntactic sugar for nested if-expressions.
+        if (expr[0] === 'switch') {
+            const ifExpr = this._transformer.transformSwitchToIf(expr);
+
+            return this.eval(ifExpr, env);
+        }
+
+        // For-loop: ( for init condition modifier body )
+        //
+        // Syntactic sugar for: (begin init (while condition (begin body modifier)))
+        if (expr[0] === 'for') {
+            const whileExpr = this._transformer.transformForToWhile(expr);
+
+            return this.eval(whileExpr, env);
+        }
+
+        // Increment: (++ foo)
+        //
+        // Syntactic sugar for: (set foo (+ foo 1))
+        if (expr[0] === '++') {
+            const setExpr = this._transformer.transformIncToSet(expr);
+
+            return this.eval(setExpr, env);
+        }
+
+        // Increment: (-- foo)
+        //
+        // Syntactic sugar for: (set foo (- foo 1))
+        if (expr[0] === '--') {
+            const setExpr = this._transformer.transformDecToSet(expr);
+
+            return this.eval(setExpr, env);
+        }
+
+        // IncrementBy: (+= foo val)
+        //
+        // Syntactic sugar for: (set foo (+ foo val))
+        if (expr[0] === '+=') {
+            const setExpr = this._transformer.transformIncByToSet(expr);
+
+            return this.eval(setExpr, env);
+        }
+
+        // DecrementBy: (-= foo val)
+        //
+        // Syntactic sugar for: (set foo (- foo val))
+        if (expr[0] === '-=') {
+            const setExpr = this._transformer.transformDecByToSet(expr);
+
+            return this.eval(setExpr, env);
+        }
+
         // Lambda declaration: (lambda square (x) (* x x))
         if (expr[0] === 'lambda') {
             const [_tag, params, body] = expr;

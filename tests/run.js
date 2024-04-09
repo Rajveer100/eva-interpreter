@@ -9,7 +9,10 @@ const tests = [
     require('./if_cond'),
     require('./built_in_func'),
     require('./user_defined_func'),
-    require('./lambda_func')
+    require('./lambda_func'),
+    require('./switch'),
+    require('./while_loop'),
+    require('./for_loop'),
 ];
 
 const eva = new Eva();

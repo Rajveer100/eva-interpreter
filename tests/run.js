@@ -13,6 +13,9 @@ const tests = [
     require('./switch'),
     require('./while_loop'),
     require('./for_loop'),
+    require('./class'),
+    require('./modules'),
+    require('./import'),
 ];
 
 const eva = new Eva();

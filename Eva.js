@@ -2,6 +2,9 @@ const assert = require('assert');
 
 const Environment = require('./Environment');
 const Transformer = require('./transform/Transformer')
+const evaParser = require('./parser/eva-parser');
+
+const fs = require('fs');
 
 /**
  * Eva Interpreter.
@@ -13,6 +16,10 @@ class Eva {
     constructor(global = GlobalEnvironment) {
         this.global = global;
         this._transformer = new Transformer();
+    }
+
+    evalGlobal(expr) {
+        return this._evalBody(expr, this.global);
     }
 
     /**
@@ -43,8 +50,19 @@ class Eva {
 
         // Variable Declaration: (set foo 10)
         if (expr[0] === 'set') {
-            const [_, name, value] = expr;
-            return env.assign(name, this.eval(value, env));
+            const [_, ref, value] = expr;
+
+            if (ref[0] === 'prop') {
+                const [_tag, instance, propName] = ref;
+                const instanceEnv = this.eval(instance, env);
+
+                return instanceEnv.define(
+                    propName,
+                    this.eval(value, env),
+                );
+            }
+
+            return env.assign(ref, this.eval(value, env));
         }
 
         // Variable Access: foo
@@ -145,6 +163,72 @@ class Eva {
             };
         }
 
+        // Class declaration: (class <Name> <Parent> <Body>)
+        if (expr[0] === 'class') {
+            const [_tag, name, parent, body] = expr;
+
+            const parentEnv = this.eval(parent) || env;
+            const classEnv = new Environment({}, parentEnv);
+
+            this._evalBody(body, classEnv);
+
+            return env.define(name, classEnv);
+        }
+
+        // Super expressions: (super <Classname>)
+        if (expr[0] === 'super') {
+            const [_tag, className] = expr;
+            return this.eval(className, env).parent;
+        }
+
+        if (expr[0] === 'new') {
+            const classEnv = this.eval(expr[1], env);
+            const instanceEnv = new Environment({}, classEnv);
+
+            const args = expr.slice(2).map(arg => this.eval(arg, env));
+
+            this._callUserDefinedFunction(
+                classEnv.lookup('constructor'),
+                [instanceEnv, ...args],
+            );
+
+            return instanceEnv;
+        }
+
+        // Property access: (prop <instance> <name>)
+        if (expr[0] === 'prop') {
+            const [_tag, instance, name] = expr;
+
+            const instanceEnv = this.eval(instance, env);
+
+            return instanceEnv.lookup(name);
+        }
+
+        // Module declaration: (module <body>)
+        if (expr[0] === 'module') {
+            const [_tag, name, body] = expr;
+
+            const moduleEnv = new Environment({}, env);
+            this._evalBody(body, moduleEnv);
+
+            return env.define(name, moduleEnv);
+        }
+
+        // Module import: (import <name>)
+        if (expr[0] === 'import') {
+            const [_tag, name] = expr;
+
+            const moduleSrc = fs.readFileSync(
+                `${__dirname}/modules/${name}.eva`,
+                'utf-8',
+            );
+
+            const body = evaParser.parse(`(begin ${moduleSrc})`);
+            const moduleExpr = ['module', name, body];
+
+            return this.eval(moduleExpr, this.global);
+        }
+
         // Function calls:
         //
         // (print "Hello World")
@@ -162,20 +246,24 @@ class Eva {
 
             // User-defined function
 
-            const activationRecord = {};
-            fn.params.forEach((param, index) => {
-                activationRecord[param] = args[index]
-            });
-
-            const activationEnv = new Environment(
-                activationRecord,
-                fn.env,
-            );
-
-            return this._evalBody(fn.body, activationEnv);
+            return this._callUserDefinedFunction(fn, args);
         }
 
         throw `Unimplemented: ${JSON.stringify(expr)}`;
+    }
+
+    _callUserDefinedFunction(fn, args) {
+        const activationRecord = {};
+        fn.params.forEach((param, index) => {
+            activationRecord[param] = args[index]
+        });
+
+        const activationEnv = new Environment(
+            activationRecord,
+            fn.env,
+        );
+
+        return this._evalBody(fn.body, activationEnv);
     }
 
     _evalBody(body, env) {
@@ -222,18 +310,21 @@ const GlobalEnvironment = new Environment({
 
     // Operators
 
-    '+'(op1, op2) {
+    '+'(op1, op2 = null) {
+        if (op2 == null) {
+            return op1;
+        }
         return op1 + op2;
     },
 
     '-'(op1, op2) {
-        return op1 - op2;
-    },
-
-    '*'(op1, op2 = null) {
         if (op2 == null) {
             return -op1;
         }
+        return op1 - op2;
+    },
+
+    '*'(op1, op2) {
         return op1 * op2;
     },
 
